@@ -1,0 +1,2 @@
+plotly
+python-ta

@@ -81,6 +81,7 @@ class RegionTree:
         - all(pop >= 0 for pop in self.populations.values())
     """
     name: str
+    identifier: str
     level: str
     populations: dict[int, float]
     land_area: float
@@ -88,15 +89,25 @@ class RegionTree:
 
     def __init__(self, name: str, level: str,
                  populations: Optional[dict[int, float]] = None,
-                 land_area: float = 0.0) -> None:
+                 land_area: float = 0.0, identifier: Optional[str] = None) -> None:
         """Initialize a new region tree."""
+        if level not in {'country', 'province', 'division', 'subdivision'}:
+            raise ValueError(f'Unknown region level: {level}')
+        if land_area < 0:
+            raise ValueError('Land area cannot be negative.')
         self.name = name
         self.level = level
+        self.identifier = identifier if identifier is not None else name
 
         if populations is None:
             self.populations = {year: 0.0 for year in YEARS}
         else:
             self.populations = populations.copy()
+
+        if set(self.populations) != set(YEARS):
+            raise ValueError('Population data must contain every supported census year.')
+        if any(population < 0 for population in self.populations.values()):
+            raise ValueError('Population values cannot be negative.')
 
         self.land_area = land_area
         self.subregions = []
@@ -148,7 +159,7 @@ class RegionTree:
         """Return the population density of this region for the given year."""
         if self.land_area == 0:
             return 0.0
-        return self.populations[year] / self.land_area
+        return self.total_population(year) / self.land_area
 
     def population_change(self, start_year: int, end_year: int) -> float:
         """Return the population change from start_year to end_year."""
@@ -396,7 +407,9 @@ class RegionTree:
         slope = numerator / denominator
         intercept = mean_y - slope * mean_x
 
-        return slope * year + intercept
+        # Linear extrapolation is only a descriptive baseline. A population
+        # count cannot be negative, so keep the result in a meaningful domain.
+        return max(0.0, slope * year + intercept)
 
 
 if __name__ == '__main__':

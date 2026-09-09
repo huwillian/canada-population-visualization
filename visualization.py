@@ -54,7 +54,6 @@ from __future__ import annotations
 from typing import TypedDict
 
 import plotly.graph_objects as go
-import python_ta
 
 from region_tree import RegionTree
 
@@ -86,13 +85,14 @@ def _all_rows(root: RegionTree) -> list[dict]:
     """Return a flattened list of rows for every node in the tree."""
     rows = []
 
-    def _helper(node: RegionTree, parent_id: str) -> None:
-        node_id = node.name if parent_id == '' else parent_id + '/' + node.name
+    def _helper(node: RegionTree, parent_id: str, parent_name: str) -> None:
+        node_id = node.identifier
 
         row = {
             'id': node_id,
             'parent': parent_id,
             'name': node.name,
+            'parent_name': parent_name,
             'level': node.level,
             'land_area': node.total_area(),
             'population_2006': node.total_population(2006),
@@ -110,9 +110,9 @@ def _all_rows(root: RegionTree) -> list[dict]:
         rows.append(row)
 
         for subregion in node.subregions:
-            _helper(subregion, node_id)
+            _helper(subregion, node_id, node.name)
 
-    _helper(root, '')
+    _helper(root, '', '')
     return rows
 
 
@@ -141,6 +141,7 @@ def make_density_treemap(root: RegionTree) -> None:
         customdata = [
             [
                 row['level'],
+                row['parent_name'],
                 row['population_2006'],
                 row['population_2011'],
                 row['population_2016'],
@@ -169,15 +170,16 @@ def make_density_treemap(root: RegionTree) -> None:
             hovertemplate=(
                 '<b>%{label}</b><br>'
                 'Level: %{customdata[0]}<br>'
-                'Population 2006: %{customdata[1]:,.0f}<br>'
-                'Population 2011: %{customdata[2]:,.0f}<br>'
-                'Population 2016: %{customdata[3]:,.0f}<br>'
-                'Population 2021: %{customdata[4]:,.0f}<br>'
-                'Population 2026 (predicted): %{customdata[5]:,.0f}<br>'
-                'Change 2006→2021: %{customdata[6]:,.0f}<br>'
-                'Change % 2006→2021: %{customdata[7]:,.2f}%<br>'
-                'Land area: %{customdata[8]:,.2f} km²<br>'
-                'Density 2021: %{customdata[9]:,.2f} people/km²'
+                'Parent: %{customdata[1]}<br>'
+                'Population 2006: %{customdata[2]:,.0f}<br>'
+                'Population 2011: %{customdata[3]:,.0f}<br>'
+                'Population 2016: %{customdata[4]:,.0f}<br>'
+                'Population 2021: %{customdata[5]:,.0f}<br>'
+                '2026 linear baseline: %{customdata[6]:,.0f}<br>'
+                'Change 2006→2021: %{customdata[7]:,.0f}<br>'
+                'Change % 2006→2021: %{customdata[8]:,.2f}%<br>'
+                'Land area: %{customdata[9]:,.2f} km²<br>'
+                'Density 2021: %{customdata[10]:,.2f} people/km²'
                 '<extra></extra>'
             ),
             visible=(i == 0)
@@ -739,9 +741,9 @@ def _prediction_model_values(years: list[int], populations: list[float]) -> Pred
     slope = numerator / denominator
     intercept = mean_y - slope * mean_x
 
-    predicted_2026 = slope * 2026 + intercept
+    predicted_2026 = max(0.0, slope * 2026 + intercept)
     extended_years = [2006, 2011, 2016, 2021, 2026]
-    fitted_values = [slope * year + intercept for year in extended_years]
+    fitted_values = [max(0.0, slope * year + intercept) for year in extended_years]
 
     errors = [populations[i] - (slope * years[i] + intercept) for i in range(n)]
     mse = sum(error ** 2 for error in errors) / n
@@ -754,7 +756,7 @@ def _prediction_model_values(years: list[int], populations: list[float]) -> Pred
         'extended_years': extended_years,
         'fitted_values': fitted_values,
         'upper': predicted_2026 + std_error,
-        'lower': predicted_2026 - std_error
+        'lower': max(0.0, predicted_2026 - std_error)
     }
 
 
@@ -795,11 +797,11 @@ def _add_traces_for_region(fig: go.Figure, region: RegionTree, visible: bool) ->
         x=[2026],
         y=[model['predicted_2026']],
         mode='markers',
-        name='Predicted 2026',
+        name='2026 linear baseline',
         marker={'size': 12, 'symbol': 'diamond'},
         hovertemplate=(
             '<b>' + region.name + '</b><br>'
-            'Predicted 2026 population: %{y:,.0f}'
+            '2026 linear baseline: %{y:,.0f}'
             '<extra></extra>'
         ),
         visible=visible
@@ -809,11 +811,11 @@ def _add_traces_for_region(fig: go.Figure, region: RegionTree, visible: bool) ->
         x=[2026, 2026],
         y=[model['lower'], model['upper']],
         mode='lines',
-        name='Prediction Range',
+        name='Historical fit dispersion',
         line={'width': 6},
         hovertemplate=(
             '<b>' + region.name + '</b><br>'
-            'Prediction range: %{y:,.0f}'
+            'Historical fit dispersion: %{y:,.0f}'
             '<extra></extra>'
         ),
         visible=visible
@@ -854,7 +856,8 @@ def make_population_prediction(root: RegionTree) -> None:
                         'showarrow': False,
                         'text': (
                             f"y = {model['slope']:.2f}x + {model['intercept']:.0f}<br>"
-                            f"Predicted 2026: {model['predicted_2026']:,.0f}"
+                            f"2026 linear baseline: {model['predicted_2026']:,.0f}<br>"
+                            'Band shows historical fit dispersion; it is not a confidence interval.'
                         )
                     }]
                 }
@@ -886,7 +889,8 @@ def make_population_prediction(root: RegionTree) -> None:
             'showarrow': False,
             'text': (
                 f"y = {canada_model['slope']:.2f}x + {canada_model['intercept']:.0f}<br>"
-                f"Predicted 2026: {canada_model['predicted_2026']:,.0f}"
+                f"2026 linear baseline: {canada_model['predicted_2026']:,.0f}<br>"
+                'Band shows historical fit dispersion; it is not a confidence interval.'
             )
         }],
         margin={'t': 140, 'l': 50, 'r': 25, 'b': 40},
@@ -904,8 +908,3 @@ def make_prediction_chart(root: RegionTree) -> None:
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-    python_ta.check_all(config={
-        'extra-imports': ['plotly.graph_objects', 'region_tree', 'python_ta'],
-        'allowed-io': [],
-        'max-line-length': 100
-    })

@@ -39,6 +39,7 @@ place where separate components become one complete application that a user can
 run, navigate, and demonstrate.
 """
 import tkinter as tk
+from pathlib import Path
 
 from data_loader import build_tree_from_csv
 from visualization import (
@@ -205,7 +206,8 @@ def launch_menu(root_data: object) -> None:
 
 def main() -> None:
     """Run the project visualizations."""
-    root = build_tree_from_csv('cleaned_population_2006_2021_augmented.csv')
+    data_file = Path(__file__).with_name('cleaned_population_2006_2021_augmented.csv')
+    root = build_tree_from_csv(data_file)
     root.update_aggregates()
     print(region_summary_text(root, 'Canada'))
     print()
@@ -214,10 +216,4 @@ def main() -> None:
 
 
 if __name__ == '__main__':
-    import python_ta
     main()
-    python_ta.check_all(config={
-        'extra-imports': ['data_loader', 'visualization', 'tkinter', 'python_ta'],
-        'allowed-io': ['main'],
-        'max-line-length': 100
-    })

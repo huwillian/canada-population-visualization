@@ -51,7 +51,7 @@ import csv
 
 RAW_2021_FILE = '98100002.csv'
 RAW_2011_FILE = '98-310-XWE2011002-301.CSV'
-OUTPUT_FILE = 'cleaned_population_2006_2021.csv'
+OUTPUT_FILE = 'cleaned_population_2006_2021_augmented.csv'
 REVIEW_FILE = 'needs_review_2006_2021.csv'
 
 
@@ -165,6 +165,7 @@ def _load_2021_base_rows() -> list[dict[str, object]]:
         )
 
         base_rows.append({
+            'geographic_code': csd_code,
             'csd_code': csd_code,
             'province': code_maps['province'].get(csd_code[:2]),
             'census_division': code_maps['division'].get(csd_code[:4]),
@@ -217,6 +218,7 @@ def _merge_rows(
             population_2011 = historical['population_2011']
 
         merged_rows.append({
+            'geographic_code': base_row['geographic_code'],
             'province': base_row['province'],
             'census_division': base_row['census_division'],
             'census_subdivision': base_row['census_subdivision'],
@@ -238,6 +240,7 @@ def _format_output_rows(row: dict[str, object]) -> list[object]:
     population_2021 = row['population_2021']
 
     return [
+        '' if row['geographic_code'] is None else str(row['geographic_code']),
         '' if row['province'] is None else str(row['province']),
         '' if row['census_division'] is None else str(row['census_division']),
         '' if row['census_subdivision'] is None else str(row['census_subdivision']),
@@ -254,6 +257,7 @@ def _split_review_and_clean(
 ) -> tuple[list[list[object]], list[list[object]], int, int]:
     """Split merged rows into review output and final clean output."""
     header: list[object] = [
+        'geographic_code',
         'province',
         'census_division',
         'census_subdivision',

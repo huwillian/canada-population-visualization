@@ -1,99 +1,56 @@
 # Canada Population Visualization
 
-This project is a Python-based data analysis and visualization program that models Canadian census geography using a tree data structure. It organizes population data into a hierarchy from Canada to provinces/territories, census divisions, and census subdivisions, then supports analysis of population density, population growth, regional comparisons, and simple population prediction.
+An interactive Python project for exploring Canadian census population data from 2006 to 2021. It represents census geography as a tree—Canada, province or territory, census division, then census subdivision—and uses Plotly to present population, density, growth, and trend comparisons.
 
-## Project Overview
+## What it offers
 
-Raw census data is stored in flat CSV tables, which is not ideal for representing geographic hierarchy. This project cleans and reorganizes the data, builds a tree-based model of Canadian regions, and provides interactive visualizations for exploring population patterns over time.
+- Interactive density and population-change treemaps with province/territory selection
+- Population and density trends for Canada and each province or territory
+- Rankings for dense, fast-growing, and high-density census subdivisions
+- A compact text summary for a selected region
+- A clearly labelled 2026 linear baseline based on the four available censuses
 
-The main idea is to represent Canadian regions as a tree:
+## Run it
 
-```text
-Canada
-├── Province / Territory
-│   ├── Census Division
-│   │   ├── Census Subdivision
-```
-
-This structure makes it possible to use recursive methods for searching, aggregation, comparison, and visualization.
-
-## Key Features
-
-- Cleans and merges Canadian census population data from multiple years
-- Builds a hierarchical `RegionTree` structure for Canadian geographic regions
-- Uses recursive methods to search regions, aggregate population and land-area values, calculate density, and compare population growth
-- Provides interactive Plotly visualizations, including treemaps, trend charts, ranking charts, and density charts
-- Includes a Tkinter-based menu interface for selecting different analysis and visualization options
-- Supports a simple 2026 population prediction based on historical census values
-
-## Technologies Used
-
-- Python
-- Plotly
-- Tkinter
-- CSV data processing
-- Tree data structures
-- Recursion
-- Basic linear regression
-
-## Academic Context and Contributions
-
-This project was originally completed as a CSC111 group project at the University of Toronto. This repository is a cleaned portfolio version of the project and does not include course instructions, grading materials, or private teammate information.
-## Team Members & Contributions
-
-### Yilin Hou
-- Cleaned and processed multi-year Canadian census datasets.
-- Contributed to the design and implementation of the hierarchical `RegionTree` data structure.
-- Implemented population density, growth comparison, ranking, and filtering features.
-- Developed and integrated interactive Plotly visualizations for population distribution, population change, and multi-year trends.
-- Contributed to the population prediction feature using linear regression.
-- Assisted with project integration, testing, debugging, and presentation preparation.
-
-### Huwillian
-- Contributed to implementation-heavy components, including the tree-based data model, data loading pipeline, and recursive analysis methods.
-- Developed and supported visualization-related features for presenting population and regional data.
-- Collaborated on architectural and design decisions and helped integrate different modules into a functional application.
-
-### Jesse Zeng
-- Conducted extensive debugging and testing across the project to identify and resolve implementation and integration issues.
-- Improved and refined the visualization components, including chart layout, readability, and overall presentation of population data.
-- Helped troubleshoot inconsistencies between data processing, analysis, and visualization modules.
-- Assisted with feature testing and validation to ensure that interactive visualizations and analytical functions produced consistent results.
-
-### Patric Pan
-- Took primary responsibility for project documentation and written deliverables.
-- Prepared and organized README content, project descriptions, methodology explanations, and feature summaries.
-- Helped document the data sources, project structure, analytical methods, and visualization features in a clear and consistent format.
-- Contributed to presentation materials and written explanations used to communicate the project’s goals, implementation, and results.
-
-## Project Structure
-
-```text
-main.py                                      # Main entry point and Tkinter menu interface
-region_tree.py                               # RegionTree class and core recursive analysis methods
-data_loader.py                               # Converts cleaned CSV data into a RegionTree
-visualization.py                             # Plotly charts, treemaps, rankings, trends, and prediction views
-date_clean.py                                # Data cleaning and preprocessing workflow
-cleaned_population_2006_2021_augmented.csv   # Cleaned project-ready population dataset
-requirements.txt                             # Required Python packages
-```
-
-## How to Run
-
-1. Install the required packages:
+Use Python 3.10 or later.
 
 ```bash
-pip install -r requirements.txt
-```
-
-2. Run the main program:
-
-```bash
+python -m pip install -r requirements.txt
 python main.py
 ```
 
-A menu window will open. From there, users can choose different population visualizations and analysis views.
+The program locates its packaged dataset relative to `main.py`, so it can be started from any working directory.
 
-## Data Note
+## Data and interpretation
 
-The dataset used in this project is based on Canadian census population data. This portfolio version includes the cleaned project-ready CSV file required to run the program. Large raw source files, review files, course instructions, and grading materials are not included.
+`cleaned_population_2006_2021_augmented.csv` contains 4,907 cleaned census-subdivision records with population values for 2006, 2011, 2016, and 2021. It is a portfolio-ready derived dataset based on Canadian census tables.
+
+The included data is suitable for exploring the published hierarchy and comparisons in this repository. It should not be used as a current official national population estimate: geographic boundaries and census definitions can change between censuses, and the repository does not include the raw source tables needed to reproduce a full boundary reconciliation.
+
+The data-cleaning script expects those raw tables locally and now writes the same `cleaned_population_2006_2021_augmented.csv` filename used by the application. When raw data is regenerated, it retains the seven-digit census-subdivision geographic code. The loader uses that code as the permanent chart identifier, which prevents similarly named places from colliding in treemaps. The legacy bundled CSV has no code column; it remains supported with a deterministic record identifier.
+
+The 2026 chart is an exploratory linear trend extrapolation, not an official forecast. Its band shows historical fit dispersion and is explicitly not a confidence interval. Negative extrapolations are bounded at zero because population counts cannot be negative.
+
+## Project layout
+
+```text
+main.py                         Tkinter launch menu
+data_loader.py                  CSV validation and RegionTree construction
+region_tree.py                  Tree storage, aggregation, analysis, and baseline prediction
+visualization.py                Interactive Plotly figures
+date_clean.py                   Optional raw-data cleaning workflow
+cleaned_population_2006_2021_augmented.csv
+tests/test_project.py           Regression tests
+```
+
+## Quality checks
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The test suite verifies the packaged dataset loads, every Plotly node identifier is unique, same-named geographic records remain separate when geographic codes are available, invalid input is rejected, and the prediction baseline cannot become negative. GitHub Actions runs the same suite for pushes and pull requests.
+
+## Background
+
+This was originally a CSC111 group project at the University of Toronto. This repository is a portfolio version and excludes course materials, grading artifacts, raw source files, and private teammate information.

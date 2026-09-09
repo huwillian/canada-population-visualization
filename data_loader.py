@@ -38,7 +38,7 @@ tree model that makes the rest of the project possible.
 """
 from __future__ import annotations
 import csv
-
+from pathlib import Path
 
 from region_tree import RegionTree
 
@@ -46,7 +46,21 @@ from region_tree import RegionTree
 YEARS = [2006, 2011, 2016, 2021]
 
 
-def build_tree_from_csv(filepath: str) -> RegionTree:
+REQUIRED_COLUMNS = {
+    'province', 'census_division', 'census_subdivision', 'land_area_km2',
+    'population_2006', 'population_2011', 'population_2016', 'population_2021'
+}
+
+
+def _required_value(row: dict[str, str], column: str, row_number: int) -> str:
+    """Return a non-blank CSV value, or explain which record is invalid."""
+    value = row.get(column, '').strip()
+    if not value:
+        raise ValueError(f'Row {row_number}: missing {column}.')
+    return value
+
+
+def build_tree_from_csv(filepath: str | Path) -> RegionTree:
     """Return a RegionTree built from the given cleaned CSV file.
 
     The CSV file must contain these columns:
@@ -59,49 +73,60 @@ def build_tree_from_csv(filepath: str) -> RegionTree:
         population_2016
         population_2021
     """
-    root = RegionTree('Canada', 'country')
+    root = RegionTree('Canada', 'country', identifier='country:canada')
 
     with open(filepath, 'r', encoding='utf-8-sig') as csv_file:
         reader = csv.DictReader(csv_file)
 
-        for row in reader:
-            province_name = row['province'].strip()
-            division_name = row['census_division'].strip()
-            subdivision_name = row['census_subdivision'].strip()
-            land_area = float(row['land_area_km2'])
+        actual_columns = set(reader.fieldnames or [])
+        missing_columns = REQUIRED_COLUMNS - actual_columns
+        if missing_columns:
+            missing = ', '.join(sorted(missing_columns))
+            raise ValueError(f'CSV is missing required columns: {missing}.')
+
+        for row_number, row in enumerate(reader, start=2):
+            province_name = _required_value(row, 'province', row_number)
+            division_name = _required_value(row, 'census_division', row_number)
+            subdivision_name = _required_value(row, 'census_subdivision', row_number)
+            try:
+                land_area = float(_required_value(row, 'land_area_km2', row_number))
+            except ValueError as error:
+                raise ValueError(f'Row {row_number}: invalid land_area_km2.') from error
+            if land_area <= 0:
+                raise ValueError(f'Row {row_number}: land_area_km2 must be positive.')
 
             populations = {}
             for year in YEARS:
-                populations[year] = float(row[f'population_{year}'])
+                column = f'population_{year}'
+                try:
+                    populations[year] = float(_required_value(row, column, row_number))
+                except ValueError as error:
+                    raise ValueError(f'Row {row_number}: invalid {column}.') from error
 
             province_node = root.get_subregion(province_name)
             if province_node is None:
-                province_node = RegionTree(province_name, 'province')
+                province_node = RegionTree(
+                    province_name, 'province', identifier=f'province:{province_name}'
+                )
                 root.add_subregion(province_node)
 
             division_node = province_node.get_subregion(division_name)
             if division_node is None:
-                division_node = RegionTree(division_name, 'division')
+                division_node = RegionTree(
+                    division_name, 'division',
+                    identifier=f'division:{province_name}:{division_name}'
+                )
                 province_node.add_subregion(division_node)
 
+            geographic_code = row.get('geographic_code', '').strip()
+            leaf_identifier = geographic_code or f'csv-row:{row_number}'
             subdivision_node = RegionTree(
                 subdivision_name,
                 'subdivision',
                 populations,
-                land_area
+                land_area,
+                identifier=f'subdivision:{leaf_identifier}'
             )
             division_node.add_subregion(subdivision_node)
 
     return root
-
-
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()
-
-    import python_ta
-    python_ta.check_all(config={
-        'extra-imports': ['csv', 'region_tree', 'python_ta'],
-        'allowed-io': ['build_tree_from_csv'],
-        'max-line-length': 100
-    })
